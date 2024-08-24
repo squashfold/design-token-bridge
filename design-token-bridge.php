@@ -1,7 +1,7 @@
 <?php 
 /*
  * Plugin Name:       Design Token Bridge
- * Plugin URI:        https://squash-fold.com/
+ * Plugin URI:        https://github.com/squashfold/design-token-bridge
  * Description:       Converts JSON design tokens to CSS variables.
  * Version:           1.1.0
  * Requires at least: 5.2
