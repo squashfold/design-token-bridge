@@ -3,7 +3,7 @@
  * Plugin Name:       Design Token Bridge
  * Plugin URI:        https://squash-fold.com/
  * Description:       Converts JSON design tokens to CSS variables.
- * Version:           1.0.0
+ * Version:           1.1.0
  * Requires at least: 5.2
  * Requires PHP:      7.2
  * Author:            Charlie Prince
@@ -16,42 +16,57 @@ add_action('admin_menu', 'dtb_add_settings_page');
 
 function dtb_add_settings_page() {
     add_menu_page(
-        'Design Tokens',            // Page title
-        'Design Token Bridge',      // Menu title
-        'manage_options',           // Capability required to see this menu item
-        'dtb-tokens',               // Menu slug
-        'dtb_render_tokens_page',   // Callback function to display the settings page
-        'dashicons-admin-generic',  // Icon (optional)
-        100                         // Position (optional)
+        'Design Tokens',            
+        'Design Token Bridge',      
+        'manage_options',           
+        'dtb-tokens',               
+        'dtb_render_tokens_page',   
+        'dashicons-admin-generic',  
+        100                         
     );
 }
 
 add_action('admin_init', 'dtb_settings_init');
 
 function dtb_settings_init() {
-    // Register a setting
     register_setting('dtb_settings_group', 'dtb_token_json');
+    register_setting('dtb_settings_group', 'dtb_convert_px_to_rem');
+    register_setting('dtb_settings_group', 'dtb_default_rem_size');
 
-    // Dettings section
     add_settings_section(
-        'dtb_settings_section',    // ID
-        'Design Token Settings',   // Title
-        'dtb_settings_section_cb', // Callback to display the section description (optional)
-        'dtb-settings'       // Page (the same as menu slug)
+        'dtb_settings_section',    
+        'Design Token Settings',   
+        'dtb_settings_section_cb', 
+        'dtb-settings'       
     );
 
-    // Settings field
     add_settings_field(
-        'dtb_field_name',         // ID
-        'Design Tokens JSON',     // Title
-        'dtb_field_cb',           // Callback to display the field
-        'dtb-settings',     // Page
-        'dtb_settings_section'    // Section ID
+        'dtb_field_name',         
+        'Design Tokens JSON',     
+        'dtb_field_cb',           
+        'dtb-settings',     
+        'dtb_settings_section'    
+    );
+    
+    add_settings_field(
+        'dtb_convert_px_to_rem', 
+        'Convert PX to REM',     
+        'dtb_convert_px_to_rem_cb',
+        'dtb-settings',
+        'dtb_settings_section'
+    );
+
+    add_settings_field(
+        'dtb_default_rem_size', 
+        'Default REM Base Size', 
+        'dtb_default_rem_size_cb',
+        'dtb-settings',
+        'dtb_settings_section'
     );
 }
 
 function dtb_settings_section_cb() {
-    echo '<p>Insert JSON containing design tokens exported from your favourite design tool and click </p>';
+    echo '<p>Insert JSON containing design tokens exported from your favourite design tool and adjust the settings below.</p>';
 }
 
 function dtb_field_cb() {
@@ -63,45 +78,63 @@ function dtb_field_cb() {
     <?php
 }
 
+function dtb_convert_px_to_rem_cb() {
+    $convert = get_option('dtb_convert_px_to_rem', 1); // Default is checked
+    ?>
+    <input type="checkbox" name="dtb_convert_px_to_rem" value="1" <?php checked(1, $convert, true); ?> />
+    <label for="dtb_convert_px_to_rem">Convert PX to REM</label>
+    <?php
+}
+
+function dtb_default_rem_size_cb() {
+    $rem_size = get_option('dtb_default_rem_size', 16); // Default is 16
+    ?>
+    <input type="number" name="dtb_default_rem_size" value="<?php echo esc_attr($rem_size); ?>" min="1" />
+    <label for="dtb_default_rem_size">Base size in pixels (px) for REM conversion.</label>
+    <?php
+}
+
 function json_to_css_variables($json_input) {
     $tokens = json_decode($json_input, true);
-
     if (json_last_error() !== JSON_ERROR_NONE) {
         return '';
     }
 
     $css_vars = [];
+    $convert_px_to_rem = get_option('dtb_convert_px_to_rem', 1);
+    $default_rem_size = get_option('dtb_default_rem_size', 16);
 
-    function parse_tokens($tokens, $prefix = '', &$css_vars) {
+    function parse_tokens($tokens, $prefix = '', &$css_vars, $convert_px_to_rem, $default_rem_size) {
         foreach ($tokens as $key => $value) {
             if (is_array($value) && isset($value['$value'])) {
-                // Remove leading and trailing hyphens and build the variable name
                 $variable_name = strtolower(trim($prefix . '-' . str_replace(' ', '-', $key), '-'));
                 $variable_value = $value['$value'];
 
-                // Format numeric values
                 if (isset($value['$type']) && $value['$type'] === 'number') {
                     if (is_numeric($variable_value)) {
-                        $variable_value = ($variable_value / 16) . 'rem';
+                        if ($convert_px_to_rem) {
+                            $variable_value = ($variable_value / $default_rem_size) . 'rem';
+                        } else {
+                            $variable_value = $variable_value . 'px';
+                        }
                     }
                 }
 
-                // Handle references
                 if (strpos($variable_value, '{') === 0 && strpos($variable_value, '}') === (strlen($variable_value) - 1)) {
                     $reference_key = strtolower(str_replace(['{', '}', '.', ' '], ['--', '--', '-', '-'], $variable_value));
-                    $reference_key = preg_replace('/-+/', '-', $reference_key); // Remove extra hyphens
-                    $reference_key = trim($reference_key, '-'); // Remove hyphens from both ends
+                    $reference_key = preg_replace('/-+/', '-', $reference_key);
+                    $reference_key = trim($reference_key, '-');
                     $variable_value = "var(--{$reference_key})";
                 }
 
                 $css_vars[$variable_name] = $variable_value;
             } elseif (is_array($value)) {
-                parse_tokens($value, $prefix . '-' . str_replace(' ', '-', $key), $css_vars);
+                parse_tokens($value, $prefix . '-' . str_replace(' ', '-', $key), $css_vars, $convert_px_to_rem, $default_rem_size);
             }
         }
     }
 
-    parse_tokens($tokens, '', $css_vars);
+    parse_tokens($tokens, '', $css_vars, $convert_px_to_rem, $default_rem_size);
 
     $css_output = "<style id='dtb-tokens'>:root {\n";
     foreach ($css_vars as $var_name => $var_value) {
@@ -112,12 +145,8 @@ function json_to_css_variables($json_input) {
     return $css_output;
 }
 
-
 function dtb_render_tokens_page() {
-    // Get the JSON input from the saved option
     $json_input = get_option('dtb_token_json');
-    
-    // Generate CSS variables
     $css_output = json_to_css_variables($json_input);
 
     ?>
@@ -125,36 +154,26 @@ function dtb_render_tokens_page() {
         <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
         <form action="options.php" method="post">
             <?php
-            // Security field
             settings_fields('dtb_settings_group');
-            
-            // Output settings sections and their fields
             do_settings_sections('dtb-settings');
-            
-            // Save settings button
             submit_button('Import and Save');
             ?>
         </form>
         <h2>Generated CSS Variables</h2>
         <code>
         <?php
-        // Output the generated CSS
-        echo strip_tags($css_output);
+        echo htmlspecialchars($css_output, ENT_QUOTES, 'UTF-8');
         ?>
         </code>
     </div>
     <?php
 }
 
-
 add_action('wp_head', 'inject_design_tokens_css', 99);
 
 function inject_design_tokens_css() {
     $json_input = get_option('dtb_token_json');
     $css_output = json_to_css_variables($json_input);
-    
-    // Debug: Test if this function is being executed
     echo "<!-- inject_design_tokens_css is called -->";
-    
-    echo $css_output;
+    echo htmlspecialchars($css_output, ENT_QUOTES, 'UTF-8');
 }
