@@ -104,6 +104,29 @@ function json_to_css_variables($json_input) {
     $convert_px_to_rem = get_option('dtb_convert_px_to_rem', 1);
     $default_rem_size = get_option('dtb_default_rem_size', 16);
 
+    // New function to handle Figma-like structure
+    function parse_figma_variables($variables, &$css_vars) {
+        foreach ($variables as $variable) {
+            $name = strtolower(str_replace(['/', ' '], ['-', '-'], $variable['name']));
+            $resolvedValue = $variable['resolvedValuesByMode']['1:0']['resolvedValue'];
+            $type = $variable['type'];
+
+            if ($type === 'FLOAT') {
+                $resolvedValue .= 'px';
+            } elseif ($type === 'COLOR' && is_array($resolvedValue)) {
+                $resolvedValue = sprintf(
+                    'rgba(%d, %d, %d, %.2f)',
+                    $resolvedValue['r'] * 255,
+                    $resolvedValue['g'] * 255,
+                    $resolvedValue['b'] * 255,
+                    $resolvedValue['a']
+                );
+            }
+
+            $css_vars[$name] = $resolvedValue;
+        }
+    }
+
     function parse_tokens($tokens, $prefix = '', &$css_vars, $convert_px_to_rem, $default_rem_size) {
         foreach ($tokens as $key => $value) {
             if (is_array($value) && isset($value['$value'])) {
@@ -134,7 +157,12 @@ function json_to_css_variables($json_input) {
         }
     }
 
-    parse_tokens($tokens, '', $css_vars, $convert_px_to_rem, $default_rem_size);
+    // Determine the format and call the appropriate parsing function
+    if (isset($tokens['variables'])) {
+        parse_figma_variables($tokens['variables'], $css_vars);
+    } else {
+        parse_tokens($tokens, '', $css_vars, $convert_px_to_rem, $default_rem_size);
+    }
 
     $css_output = "<style id='dtb-tokens'>:root {\n";
     foreach ($css_vars as $var_name => $var_value) {
@@ -144,6 +172,7 @@ function json_to_css_variables($json_input) {
 
     return $css_output;
 }
+
 
 function dtb_render_tokens_page() {
     $json_input = get_option('dtb_token_json');
