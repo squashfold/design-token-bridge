@@ -204,5 +204,5 @@ function inject_design_tokens_css() {
     $json_input = get_option('dtb_token_json');
     $css_output = json_to_css_variables($json_input);
     echo "<!-- inject_design_tokens_css is called -->";
-    echo htmlspecialchars($css_output, ENT_QUOTES, 'UTF-8');
+    echo $css_output;
 }
