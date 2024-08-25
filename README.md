@@ -1,9 +1,20 @@
 # Design Token Bridge for WordPress
 This plugin is intended for use when exporting variables out of Figma and other design tools. The plugin takes variables in JSON format and parses the JSON output into vanilla CSS variables. This allows for greater parity between design and development teams where the majority of styling updates to themes can be automated based on updates made in the design tool.
 
+## Installation
+1. [Download the latest release here](https://github.com/squashfold/design-token-bridge/releases)
+2. Unzip the folder
+3. Place the design-token-bridge folder within your WordPress plugins folder
+4. In the WordPress admin panel, go to Plugins and enable Design Token Bridge
+
 ## How to use
 ### Figma
-This Plugin was built primarily to support [Variables Import Export](https://www.figma.com/community/plugin/1254848311152928301).
+This Plugin supports the following Figma plugins:
+* [Variables Import Export](https://www.figma.com/community/plugin/1254848311152928301)
+* [Export/Import Variables](https://www.figma.com/community/plugin/1256972111705530093)
+
+Other plugins which export to JSON format may also work, but are not officially supported.
+
 * Use this plugin or any similar plugin which exports to JSON format.
 * Paste the generated JSON into the plugins settings and click 'Import and Save'
 * The output is shown below the save button and will be loaded into the <head> tag of all pages
