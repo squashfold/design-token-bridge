@@ -1,5 +1,5 @@
 <?php 
-/*
+/**
  * Plugin Name:       Design Token Bridge
  * Plugin URI:        https://github.com/squashfold/design-token-bridge
  * Description:       Converts JSON design tokens to CSS variables.
