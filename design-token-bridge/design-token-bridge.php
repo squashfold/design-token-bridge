@@ -32,6 +32,7 @@ function dtb_settings_init() {
     register_setting('dtb_settings_group', 'dtb_token_json');
     register_setting('dtb_settings_group', 'dtb_convert_px_to_rem');
     register_setting('dtb_settings_group', 'dtb_default_rem_size');
+    register_setting('dtb_settings_group', 'dtb_exclude_filters');
 
     add_settings_section(
         'dtb_settings_section',    
@@ -60,6 +61,14 @@ function dtb_settings_init() {
         'dtb_default_rem_size', 
         'Default REM Base Size', 
         'dtb_default_rem_size_cb',
+        'dtb-settings',
+        'dtb_settings_section'
+    );
+
+    add_settings_field(
+        'dtb_exclude_filters', 
+        'Exclude Filters', 
+        'dtb_exclude_filters_cb',
         'dtb-settings',
         'dtb_settings_section'
     );
@@ -94,6 +103,15 @@ function dtb_default_rem_size_cb() {
     <?php
 }
 
+function dtb_exclude_filters_cb() {
+    $filters = get_option('dtb_exclude_filters', '');
+    ?>
+    <input type="text" name="dtb_exclude_filters" value="<?php echo esc_attr($filters); ?>" />
+    <label for="dtb_exclude_filters">Comma-separated list of keywords to exclude from conversion (e.g., weight, margin).</label>
+    <?php
+}
+
+
 function json_to_css_variables($json_input) {
     $tokens = json_decode($json_input, true);
     if (json_last_error() !== JSON_ERROR_NONE) {
@@ -103,9 +121,9 @@ function json_to_css_variables($json_input) {
     $css_vars = [];
     $convert_px_to_rem = get_option('dtb_convert_px_to_rem', 1);
     $default_rem_size = get_option('dtb_default_rem_size', 16);
+    $exclude_filters = array_map('trim', explode(',', get_option('dtb_exclude_filters', '')));
 
-    // New function to handle Figma-like structure
-    function parse_figma_variables($variables, &$css_vars) {
+    function parse_figma_variables($variables, &$css_vars, $exclude_filters) {
         foreach ($variables as $variable) {
             $name = strtolower(str_replace(['/', ' '], ['-', '-'], $variable['name']));
             $resolvedValue = $variable['resolvedValuesByMode']['1:0']['resolvedValue'];
@@ -127,13 +145,21 @@ function json_to_css_variables($json_input) {
         }
     }
 
-    function parse_tokens($tokens, $prefix = '', &$css_vars, $convert_px_to_rem, $default_rem_size) {
+    function parse_tokens($tokens, $prefix = '', &$css_vars, $convert_px_to_rem, $default_rem_size, $exclude_filters) {
         foreach ($tokens as $key => $value) {
             if (is_array($value) && isset($value['$value'])) {
                 $variable_name = strtolower(trim($prefix . '-' . str_replace(' ', '-', $key), '-'));
                 $variable_value = $value['$value'];
 
-                if (isset($value['$type']) && $value['$type'] === 'number') {
+                $exclude = false;
+                foreach ($exclude_filters as $filter) {
+                    if (strpos($variable_name, $filter) !== false) {
+                        $exclude = true;
+                        break;
+                    }
+                }
+
+                if (!$exclude && isset($value['$type']) && $value['$type'] === 'number') {
                     if (is_numeric($variable_value)) {
                         if ($convert_px_to_rem) {
                             $variable_value = ($variable_value / $default_rem_size) . 'rem';
@@ -152,16 +178,15 @@ function json_to_css_variables($json_input) {
 
                 $css_vars[$variable_name] = $variable_value;
             } elseif (is_array($value)) {
-                parse_tokens($value, $prefix . '-' . str_replace(' ', '-', $key), $css_vars, $convert_px_to_rem, $default_rem_size);
+                parse_tokens($value, $prefix . '-' . str_replace(' ', '-', $key), $css_vars, $convert_px_to_rem, $default_rem_size, $exclude_filters);
             }
         }
     }
 
-    // Determine the format and call the appropriate parsing function
     if (isset($tokens['variables'])) {
-        parse_figma_variables($tokens['variables'], $css_vars);
+        parse_figma_variables($tokens['variables'], $css_vars, $exclude_filters);
     } else {
-        parse_tokens($tokens, '', $css_vars, $convert_px_to_rem, $default_rem_size);
+        parse_tokens($tokens, '', $css_vars, $convert_px_to_rem, $default_rem_size, $exclude_filters);
     }
 
     $css_output = "<style id='dtb-tokens'>:root {\n";
