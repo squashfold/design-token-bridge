@@ -189,11 +189,11 @@ function json_to_css_variables($json_input) {
         parse_tokens($tokens, '', $css_vars, $convert_px_to_rem, $default_rem_size, $exclude_filters);
     }
 
-    $css_output = "<style id='dtb-tokens'>:root {\n";
+    $css_output = ":root {\n";
     foreach ($css_vars as $var_name => $var_value) {
         $css_output .= "  --$var_name: $var_value;\n";
     }
-    $css_output .= "}</style>";
+    $css_output .= "}";
 
     return $css_output;
 }
@@ -229,5 +229,7 @@ function inject_design_tokens_css() {
     $json_input = get_option('dtb_token_json');
     $css_output = json_to_css_variables($json_input);
     echo "<!-- inject_design_tokens_css is called -->";
-    echo $css_output;
+    echo "<style id='dtb-tokens'>";
+    echo esc_html( $css_output );
+    echo "</style>";
 }
