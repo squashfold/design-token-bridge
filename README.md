@@ -48,6 +48,9 @@ Once enabled, the plugin has an option page which allows for configuration of th
   * Check this to automatically convert pixel units into REMS. If this is unchecked 'px' is used instead
 * Base Font Size
     * If using REMs set this to your base font size for automatic REMs calculation
+* Exclude Filters
+    * A comma seperated list of keywords which should be excluded from REMs conversion
+    * For example, if you use numeric font weights such as 400 with a base font-size of 16 this would output a font-weight of 25rem - which isn't valid. We can add 'weight' to the exclude filters (assuming the word 'weight' is included in your Figma variable name) and then any variable which includes the word 'weight' is excluded from PX to REMs conversion
 
 ## Feature Requests and Bug Reporting
 If you would like to request support of a new feature or found a bug please [submit a ticket](https://github.com/squashfold/design-token-bridge/issues/new/choose)
